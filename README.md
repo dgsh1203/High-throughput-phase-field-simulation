@@ -1,160 +1,194 @@
 # High-Throughput Phase-Field Simulation Toolkit
 
-A toolkit for automating large parameter sweeps of phase-field simulations with SLURM submission, plus batch post-processing to extract 2D slices and generate quiver-plot visualizations.
+Automates large-scale parameter sweeps and batch post-processing of polar field data, producing 2D quiver-plot visualizations.
 
 ---
 
 ## Table of Contents
 
-1. [Overview](#overview)  
-2. [Prerequisites](#prerequisites)  
-3. [Directory Structure](#directory-structure)  
-4. [Setup](#setup)  
-5. [Parameter Sweep Script](#parameter-sweep-script)  
-6. [Data Processing Script](#data-processing-script)  
-7. [Configuration Options](#configuration-options)  
-8. [Notes & Tips](#notes--tips)  
-9. [License](#license)  
+1. [Prerequisites](#prerequisites)
+2. [Directory Structure](#directory-structure)
+3. [Installation & Compilation](#installation--compilation)
+4. [Quick Start](#quick-start)
+5. [Detailed Usage](#detailed-usage)
 
----
-
-## Overview
-
-- **Script 1:** `sweep.py` — interactively defines parameter ranges, generates combinations, applies symmetry filtering, creates per-task folders from a template, writes input files, and optionally submits jobs to SLURM.  
-- **Script 2:** `process.py` — traverses all task folders, aggregates 3D polar data, extracts mid-plane or specified 2D slices, interpolates the field, and produces high-resolution quiver plots. Summaries and CSV indices are collected under `summary/`.
+   1. [1. Parameter Sweep Script](#1-parameter-sweep-script)
+   2. [2. Batch Data Processing Script](#2-batch-data-processing-script)
+6. [Configuration Notes](#configuration-notes)
+7. [Output & Results](#output--results)
+8. [License](#license)
 
 ---
 
 ## Prerequisites
 
-- Linux or macOS environment  
-- Python 3.8+  
-- [NumPy](https://numpy.org/)  
-- [SciPy](https://scipy.org/)  
-- [Matplotlib](https://matplotlib.org/)  
-- SLURM (for job submission)  
-- A working phase-field simulation package (provided in `phasefield_pkg/`)
+* **Operating System:** Linux / macOS
+* **Tools & Libraries:**
 
-Install Python deps via:
-```bash
-pip install numpy scipy matplotlib
-Directory Structure
-Place all items at the same level:
+  * Python 3.8+
+  * NumPy
+  * SciPy
+  * Matplotlib
+  * GNU Make
+  * SLURM (for optional job submission)
+* **Hardware:**
 
-.
-├── phasefield_pkg/       ← your simulation software package
-├── sweep.py             ← parameter sweep & submission script
-├── process.py           ← batch data-processing & plotting script
-└── origin/              ← template folder (contains inputN.in, V-3.sh, Makefile, etc.)
-After first run you’ll get:
+  * Multi-core CPU (recommended)
+  * Sufficient disk space for simulation outputs
 
-├── tasks/               ← auto-generated per-task folders (task_1_…)
-│   ├── task_1_…/
-│   └── task_2_…/
-└── summary/             ← aggregated outputs
-    ├── XY/, XZ/, YZ/
-    └── XY_summary.csv, XZ_summary.csv, YZ_summary.csv
-Setup
-Place everything at the same directory level (see above).
+---
 
-Edit phasefield_pkg/Makefile and origin/V-3.sh to match your system paths, compiler flags, and SLURM directives.
+## Directory Structure
 
-Compile your simulation code:
+```
+your_project_root/
+├── phasefield_package/       ← Compiled simulation software  
+│   ├── Makefile  
+│   ├── V-3.sh                ← SLURM job script template  
+│   └── ...                   ← Other executables & resources  
+├── sweep.py                  ← High-throughput parameter sweep script  
+├── process.py                ← Batch data-processing & plotting script  
+└── origin/                   ← Template input directory  
+    └── inputN.in             ← Example template input file  
+```
 
-cd phasefield_pkg
-make clean && make all
-cd ..
-Verify that running your simulation executable from within origin/ produces expected output files.
+---
 
-Parameter Sweep Script
-Run:
+## Installation & Compilation
 
-python3 sweep.py
-Template discovery: ensures origin/ and origin/inputN.in exist.
+1. **Clone or copy** the entire project directory to your local machine.
+2. **Enter** the simulation package folder:
 
-Parameter parsing: reads commented fields in inputN.in marked with ! param1, param2, ....
+   ```bash
+   cd phasefield_package
+   ```
+3. **Edit** `Makefile` and `V-3.sh` to match your system’s compiler, library paths, and SLURM settings.
+4. **Compile** the phase-field binary:
 
-Interactive prompts:
+   ```bash
+   make
+   ```
 
-Select how many parameters to scan
+   On success, an executable (e.g., `phasefield_exec`) will be generated in this folder.
 
-Choose each by name or index
+---
 
-Enter start, end, and step values
+## Quick Start
 
-Combination preview (first 5 sets) and total-count confirmation.
+1. Ensure **all three** items are in the same directory level:
 
-Symmetry filter: if both asub1 and asub2 are scanned, only keeps combinations with asub1 ≤ asub2.
+   * `phasefield_package/`
+   * `sweep.py`
+   * `process.py`
+2. **Generate & (optionally) submit** a batch of simulation tasks:
 
-Directory creation: creates tasks/task_<id>_<param>_<value>… for each combo.
+   ```bash
+   python3 sweep.py
+   ```
+3. **Process & visualize** results after simulations finish:
 
-Input file writing: writes updated inputN.in in each folder.
+   ```bash
+   python3 process.py
+   ```
 
-Metadata: writes tasks.csv listing each task’s folder and parameter values.
+---
 
-Optional SLURM submission: when confirmed, calls sbatch V-3.sh inside each task folder.
+## Detailed Usage
 
-Data Processing Script
-Run:
+### 1. Parameter Sweep Script
 
-python3 process.py
-Initialize summary directories (summary/XY, summary/XZ, summary/YZ) and CSV headers.
+**File:** `sweep.py`
 
-Discover all tasks/task_* folders.
+1. **Template directory:**
 
-For each task:
+   * `origin/` must contain `inputN.in`, the template with commented “! parameter\_name” fields.
+2. **Run:**
 
-Read and aggregate chunked 3D data (PELOOP.%08d.dat).
+   ```bash
+   python3 sweep.py
+   ```
+3. **Interactive prompts:**
 
-Slice into 2D planes (XY, XZ, YZ), with mid-plane default if no index provided.
+   1. Select which parameters to scan.
+   2. Input **start**, **end**, and **step** values.
+   3. Preview combinations (first 5 sets).
+   4. Confirm creation and SLURM submission.
+4. **Outputs:**
 
-Interpolate onto a uniform grid.
+   * `tasks/` folder with subfolders `task_1_<params>/`, …
+   * `tasks.csv` listing task IDs, folder names, and parameter values.
 
-Plot quiver diagrams at high DPI and save as XY_quiver.jpg, XZ_quiver.jpg, YZ_quiver.jpg.
+### 2. Batch Data Processing Script
 
-Summarize by copying plots into summary/<plane>/ and appending entries to <plane>_summary.csv.
+**File:** `process.py`
 
-Completion message when all tasks processed.
+1. **Configuration** at top of script:
 
-Configuration Options
-All configurable parameters are defined at the top of each script:
+   * `BASE_DIR`: root of `tasks/`
+   * Time-step & chunk settings (`TIME_STEP`, `NUM_CHUNKS`, `DAT_PATTERN`)
+   * Slice indices (`XY_SLICE_K`, etc.)
+   * Plot settings (`*_INTERP_NUM`, DPI, domain limits)
+2. **Run:**
 
-In sweep.py
-template (folder name)
+   ```bash
+   python3 process.py
+   ```
+3. **Workflow:**
 
-input_file (filename in template)
+   1. Creates `summary/XY`, `summary/XZ`, `summary/YZ` directories.
+   2. Iterates each `task_*` folder:
 
-In process.py
+      * Aggregates 3D data, extracts XY/XZ/YZ slices.
+      * Generates quiver plots (`XY_quiver.jpg`, etc.).
+      * Copies plots to `summary/<plane>/` and appends entries to `<plane>_summary.csv`.
+4. **Outputs:**
 
-BASE_DIR        = 'tasks'
-TIME_STEP       = 500
-NUM_CHUNKS      = 20
-DAT_PATTERN     = 'PELOOP.%08d.dat'
-WRITE_PXYZ      = False
+   * `summary/` with plots and CSV summaries per plane.
 
-# Slice indices (1-based; None = mid-plane)
-XY_SLICE_K      = 150
-XZ_J_INDEX      = None
-YZ_I_INDEX      = None
+---
 
-# Interpolation/grid & plot settings per plane
-XY_INTERP_NUM   = 50
-XY_INTERP_NUM2  = 50
-XY_DPI          = 500
-XY_X_MIN, XY_X_MAX = 1, 100
-XY_Y_MIN, XY_Y_MAX = 1, 100
+## Configuration Notes
 
-# [Similarly for XZ and YZ planes…]
-Adjust these values before running to fit your domain size, resolution needs, and desired image quality.
+* **Folder placement:** `phasefield_package/`, `sweep.py`, and `process.py` **must** reside at the same hierarchy level.
+* **Makefile & V-3.sh:**
 
-Notes & Tips
-Template edits: keep a pristine copy of origin/ in version control; only modify Makefile and SLURM script (V-3.sh).
+  * Update compiler flags, include paths, and SLURM directives (`#SBATCH`) to match your cluster.
+* **Python dependencies:**
 
-Error handling: missing data chunks or bad headers are reported and skipped. Inspect console output for failed tasks.
+  ```bash
+  pip3 install numpy scipy matplotlib
+  ```
+* **SLURM submission:**
 
-Scaling factors: in process.py, XZ_SCALE_FACTOR and YZ_SCALE_FACTOR uniformly scale vector lengths for visual clarity.
+  * If you choose **not** to submit jobs automatically, answer **“n”** when prompted during `sweep.py`.
 
-Output formats: change OUTPUT_EXT (e.g. to png) if desired.
+---
 
-Extending: you can wrap these scripts into a higher-level workflow manager or integrate with other HPC schedulers by swapping out the SLURM submission call.
+## Output & Results
 
+* **Task folders:**
+
+  ```
+  tasks/
+  ├── task_1_asub1_3_asub2_3/
+  │   ├── inputN.in
+  │   ├── PELOOP.00500.dat …
+  │   └── XY_quiver.jpg …
+  └── …
+  ```
+* **Summary plots & CSVs:**
+
+  ```
+  summary/
+  ├── XY/
+  │   ├── task_1_asub1_3_asub2_3_XY.jpg
+  │   └── XY_summary.csv
+  ├── XZ/ …
+  └── YZ/ …
+  ```
+
+---
+
+## License
+
+This toolkit is released under the MIT License. See [LICENSE](LICENSE) for details.
